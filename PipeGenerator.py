@@ -1,33 +1,88 @@
+import sys, os
 import bpy
-from math import sqrt
+import bmesh
+import random
+import numpy as np
+import math
+import collections
+from bpy_extras.object_utils import AddObjectHelper
+import mathutils as mu
+import networkx as nx
 
-curve = bpy.context.object
+import importlib
+import helpers.mathhelp as mh
+import helpers.genutils as gu
+import helpers.generationgraph as gg
+importlib.reload(mh)
+importlib.reload(gu)
+importlib.reload(gg)
 
 
-if len(curve.data.splines) > 1:
+# We'll want to able to change offset based on input
+offset= 0.1
+offset_radius = offset * 2 * 1.1
 
-    bpy.ops.object.mode_set(mode='EDIT')
-    bpy.ops.curve.select_all(action='DESELECT')
+# Checking if selected_objects.size() > 1 and asking for only 1 sel obj
+sel_object = bpy.context.selected_objects[0]
+sel_object_num = len(bpy.context.selected_objects)
 
-radius = 0.25
-curves = [i for i in curve.data.splines]
+if sel_object.type != 'MESH':
+    print("Wrong object type!")
+if sel_object_num != 1:
+    print("You can only select 1 Mesh!")
 
-for c in curves:
-    for p in c.points:
-        for check in curves:
-            if check == c:
-                continue
-            for point in check.points:
-                dist = sqrt( (point.co[0]-p.co[0])**2 + (point.co[1]-p.co[1])**2 + (point.co[2]-p.co[2])**2)
-                if dist < 2*radius:
-                    p.co = [p.co[0], p.co[1], p.co[2]+2.5*radius, p.co[3]]
+def generate_bmesh(selected_obj):
+    #Create Bmesh from selected Mesh
+    bm = bmesh.new()
+    bm.from_mesh(selected_obj.data)
+    return bm
 
-while len(curve.data.splines) > 1:
+def create_mesh_to_pathfind(bmesh):
+    vertexlayer1 = []
+    vertexlayer2 = []
+    edgelayer = []
+    edgelayer2 = []
+    edge_connections = []
+    all_edges = []
 
-    for point in curve.data.splines[0].points:
-        point.select = True
+    vertexmap = {}
+
+    for index, v in enumerate(bmesh.verts):
+        #Get vertex via their normal with...
+        vertex1 = v.co + v.normal * offset
+        vertex2 = v.co + v.normal * (offset + offset_radius)
+
+        #Append vertices to each of their respective layer
+        vertexlayer1.append(vertex1)
+        vertexlayer2.append(vertex2)
+
+        #Create vertex map index list to be used later
+        vertexmap[v.index] = index
+
+    for e in bmesh.edges:
+        #Get index of each Edge's two connected vertices
+        index0 = e.verts[0].index
+        index1 = e.verts[1].index
         
-    bpy.ops.curve.separate()
-                    
+        #Index is called upon via the created vertexmap as it contains
+        #all the vertices, then append it to the edge layer to pathfind later
+        edgelayer.append([vertexmap[index0], vertexmap[index1]])
 
-bpy.ops.object.mode_set(mode='OBJECT')
+    #Merge the two layers together
+    total_vertex_num = len(vertexmap)
+    merged_vertices = vertexlayer1 + vertexlayer2
+
+    edgelayer2 = [[v+total_vertex_num for v in edge] for edge in edgelayer]
+    layer_connection_edges = [[v, v+total_vertex_num] for v in range(total_vertex_num)]
+    #Combine all edges to make the pathfinding mesh
+    all_edges = edgelayer + edgelayer2 + layer_connection_edges
+
+    #Close bmesh (Prevent further access)
+    bmesh.free()
+    return merged_vertices, all_edges
+
+def get_interface_from_obj_polygons():
+    return
+
+bm = generate_bmesh(sel_object)
+vertes_edges = create_mesh_to_pathfind(bm)
