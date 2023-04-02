@@ -352,6 +352,6 @@ def create_pipes(faces, max_paths, radius, resolution, seed = 1, mat_idx = 0):
 # Currently the code is just run directly with the values controlled here
 
 bm = generate_bmesh(sel_object)
-vertices, edges = create_mesh_to_pathfind(bm, 4)
+vertices, edges = create_mesh_to_pathfind(bm, layers=4)
 faces = get_faces_from_obj_polygons(sel_object)
-msg = create_pipes(faces, layers = 5, radius = 0.05, resolution = 10, seed=9)
+msg = create_pipes(faces, max_paths = 5, radius = 0.05, resolution = 10, seed=9)
