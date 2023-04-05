@@ -354,4 +354,213 @@ def create_pipes(faces, max_paths, radius, resolution, seed = 1, mat_idx = 0):
 bm = generate_bmesh(sel_object)
 vertices, edges = create_mesh_to_pathfind(bm, layers=4)
 faces = get_faces_from_obj_polygons(sel_object)
-msg = create_pipes(faces, max_paths = 5, radius = 0.05, resolution = 10, seed=9)
+msg = create_pipes(faces, max_paths = 10, radius = 0.05, resolution = 10, seed=4)
+
+
+
+
+
+
+
+
+
+
+
+
+
+# create plugin here
+
+#button to delete all pipes on sel_object, can be accessed in PipeGenerator panel
+class delete_children(bpy.types.Operator):
+    """Delete all pipes linked to this object"""
+    bl_idname = "object.delete_children"
+    bl_label = "Delete Object Pipes"
+
+    def execute(self, context):
+        for p_ob in context.selected_objects:
+            for c_ob in p_ob.children:
+                if 'pipe_id' in c_ob.keys():
+                    bpy.data.objects.remove(c_ob, do_unlink=True)
+        return {'FINISHED'}
+    
+#creates PipeGenerator panel on righthand tabs, shortcut = N
+class pipe_panel(bpy.types.Panel):
+    """Creates a Panel in the scene context of the properties editor"""
+    bl_label = "PipeGenerator"
+    bl_idname = "SCENE_PT_piperator_panel"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'PipeGenerator'
+    #bl_context = "tool"
+
+    def draw(self, context):
+        layout = self.layout
+        scene = context.scene
+        layout.operator("mesh.add_pipes") #opens Add Pipes operator
+        layout.operator("object.delete_children")
+
+
+
+from bpy.props import (
+    BoolProperty,
+    BoolVectorProperty,
+    EnumProperty,
+    IntProperty,
+    FloatProperty,
+    FloatVectorProperty,
+)
+
+class AddPipe(bpy.types.Operator):
+    """Add pipes on faces of a mesh"""
+    bl_idname = "mesh.add_pipes"
+    bl_label = "Add Pipes"
+    bl_options = {'REGISTER', 'UNDO'}
+
+#    mode: EnumProperty(
+#        name = "mesh mode",
+#        description = "choose mesh generation mode",
+#        items={('pipes', 'Pipe Mesh', 'Generate pipe meshes'),
+#            ('polycurve', 'Poly Curve Object', 'Use curve objects with poly splines and simple bevel for pipes'),
+#            ('wire', 'Simple Wire', 'Use simple wireframe'),
+#            ('skin', 'Skin Modifier', 'Use simple wireframe with skin modifier')},
+#        default='skin'
+#        )
+    
+    radius: FloatProperty(
+        name="radius",
+        description="radius of pipes",
+        min=0.001, max=1000.0,
+        step = 1.0,
+        default=.05,
+    )
+    
+    res_v: IntProperty(name="resolution v",
+        description="resolution of pipe circumference",
+        default=10,
+        min = 4,
+    )
+    
+    offset: FloatProperty(name="offset",
+        description="offset from mesh",
+        min=-1000, max=1000.0,
+        step = 1.0,
+        default=.11,
+    )
+    
+    seed: IntProperty(name="random seed",
+        description="seed value for randomness",
+        default=10,
+    )
+    
+    number: IntProperty(name="number of pipes",
+        description="number of pipes",
+        min = 0,
+        default = 2
+    )
+    # our own
+    layers: IntProperty(name="number of layers",
+        description="number of layers of pipes",
+        min = 0,
+        default = 2
+    )
+    
+    reset: BoolProperty(name="reset",
+        description="delete previously created pipes",
+        default=True,
+    )
+
+
+    def execute(self, context):
+        if self.reset:
+            for p_ob in context.selected_objects:
+              for c_ob in p_ob.children:
+                if 'pipe_id' in c_ob.keys():
+                    bpy.data.objects.remove(c_ob, do_unlink=True)            
+
+        #TODO: enable "poll" method for better object checking
+
+        if len(bpy.context.selected_objects) == 0:
+            printinfo('No objects selected!')
+            return {'CANCELLED'}
+        sel_object = bpy.context.selected_objects[0]
+        if sel_object.type != 'MESH':
+            printinfo("Wrong object type!")
+            return {'CANCELLED'}
+
+        #create_pipes(faces, max_paths = 10, radius = 0.05, resolution = 10, seed=4)
+#        state = add_pipes(sel_object,
+#                          radius = self.radius,
+#                    offset = self.offset,
+#                    number = self.number,
+#                    seed = self.seed,
+#                    debug = self.debug,
+#                    surfaceglue = self.surfaceglue,
+#                    mode = self.mode,
+#                    flange_appearance = self.flange_appearance,
+#                    res_v = self.res_v,
+#                    material_index = self.material_idx,
+#                    support_period = self.support_period)  
+        bm = generate_bmesh(sel_object)
+        vertices, edges = create_mesh_to_pathfind(bm, layers=4)
+        faces = get_faces_from_obj_polygons(sel_object)
+        state = create_pipes(faces,
+                    max_paths = self.number,
+                    radius = self.radius,
+                    resolution = self.res_v,
+                    seed = self.seed,)        
+
+        if state != "success":
+            #self.report({'INFO'}, state)
+            render_components.catalog = object_catalog()
+            self.report({'ERROR'}, state)
+            return {'CANCELLED'}
+            
+        return {'FINISHED'}
+
+
+def menu_func(self, context):
+    self.layout.operator(AddPipe.bl_idname, icon='META_CAPSULE')
+
+
+def register():
+    bpy.utils.register_class(AddPipe)
+    bpy.types.VIEW3D_MT_mesh_add.append(menu_func)
+    
+    bpy.utils.register_class(delete_children)
+    bpy.utils.register_class(pipe_panel)
+
+
+def unregister():
+    bpy.utils.unregister_class(AddPipe)
+    bpy.types.VIEW3D_MT_mesh_add.remove(menu_func)
+    
+    bpy.utils.unregister_class(delete_children)
+    bpy.utils.unregister_class(pipe_panel)
+
+
+if __name__ == "__main__":
+    #logging.basicConfig(level=logging.INFO)     #already set in blender this way
+    register()
+#    unregister()
+    import pdb, traceback, sys
+    try:
+        #get selected object
+#        """ bm = generate_bmesh(sel_object)
+#        vertices, edges = create_mesh_to_pathfind(bm, layers=layers)
+#        faces = get_faces_from_obj_polygons(sel_object)
+#        msg = create_pipes(faces, max_paths=number, radius=radius, resolution=res_v, seed=seed) """
+
+#        """ob = bpy.context.selected_objects[0]
+#        
+#        vs, es = generate_pathfinding_mesh(ob)
+#        
+#        newobj = gu.genobjfrompydata(verts = vs,
+#                                 edges = es)"""
+        # test call
+        bpy.ops.mesh.add_pipes()
+
+        pass
+    except:
+        extype, value, tb = sys.exc_info()
+        traceback.print_exc()
+        #pdb.post_mortem(tb)
