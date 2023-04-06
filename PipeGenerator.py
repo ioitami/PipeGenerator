@@ -23,13 +23,15 @@ def printinfo(msg):
 
 class Paths:
     # TODO We'll want to able to change offset based on input
-    offset = 0
-    offset_radius = offset * 2 * 1.1
 
-    vert_occupation = collections.defaultdict(int)
+    def __init__(self, offset):
+        self.offset = offset
+        self.offset_radius = offset * 2 * 1.1
 
-    vertices = None
-    edges = None
+        self.vert_occupation = collections.defaultdict(int)
+
+        self.vertices = None
+        self.edges = None
 
     # Checking if selected_objects.size() > 1 and asking for only 1 sel obj
     sel_object = bpy.context.selected_objects[0]
@@ -148,6 +150,8 @@ class Paths:
             return vert_idx, True
         
         usable_verts, usable_edges, vert_mapping = self.get_usable_mesh()
+        assert self.vert_occupation[vert_idx[0]] == 0
+        assert self.vert_occupation[vert_idx[1]] == 0
         # for v in outside_verts:
         #     assert v in usable_verts
         outside_start_idx, outside_end_idx = vert_mapping.index(vert_idx[0]), vert_mapping.index(vert_idx[1])
@@ -554,8 +558,8 @@ class AddPipe(bpy.types.Operator):
                         bpy.data.objects.remove(c_ob, do_unlink=True)            
         
         #TODO: enable "poll" method for better object checking
-        instPaths = Paths()
-        instPaths.offset = self.offset
+        instPaths = Paths(self.offset)
+        # instPaths.offset = self.offset
         instPaths.sel_object = bpy.context.selected_objects[0]
         
         if len(bpy.context.selected_objects) == 0:
