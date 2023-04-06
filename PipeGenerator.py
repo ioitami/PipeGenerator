@@ -351,10 +351,10 @@ def create_pipes(faces, max_paths, radius, resolution, seed = 1, mat_idx = 0):
 # TODO Prepare to make this a plugin
 # Currently the code is just run directly with the values controlled here
 
-bm = generate_bmesh(sel_object)
-vertices, edges = create_mesh_to_pathfind(bm, layers=2)
-faces = get_faces_from_obj_polygons(sel_object)
-msg = create_pipes(faces, max_paths = 2, radius = 0.05, resolution = 10, seed=4)
+#bm = generate_bmesh(sel_object)
+#vertices, edges = create_mesh_to_pathfind(bm, layers=2)
+#faces = get_faces_from_obj_polygons(sel_object)
+#msg = create_pipes(faces, max_paths = 2, radius = 0.05, resolution = 10, seed=4)
 
 
 
@@ -501,7 +501,11 @@ class AddPipe(bpy.types.Operator):
 #                    material_index = self.material_idx,
 #                    support_period = self.support_period)  
         bm = generate_bmesh(sel_object)
+        global vertices
+        global edges
+        global faces
         vertices, edges = create_mesh_to_pathfind(bm, layers=self.layers)
+        
         faces = get_faces_from_obj_polygons(sel_object)
         state = create_pipes(faces,
                     max_paths = self.number,
