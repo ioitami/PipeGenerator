@@ -42,15 +42,15 @@ class Paths:
     if sel_object_num != 1:
         print("You can only select 1 Mesh!")
 
-    def generate_bmesh(self, selected_obj):
-        '''Create Bmesh from selected Mesh'''
-        bm = bmesh.new()
-        bm.from_mesh(selected_obj.data)
-        return bm
+    # def generate_bmesh(self, selected_obj):
+    #     '''Create Bmesh from selected Mesh'''
+    #     bm = bmesh.new()
+    #     bm.from_mesh(selected_obj.data)
+    #     return bm
 
-    def create_mesh_to_pathfind(self, bmesh, layers=2):
+    def create_mesh_to_pathfind(self, faces, layers=2):
         '''
-            Takes in Bmesh, returns specified layers of vertices 
+            Takes in faces, returns specified layers of vertices 
             and corresponding edges to use for finding paths
         '''
 
@@ -60,29 +60,41 @@ class Paths:
             vertex_layers[l] = []
             edge_layers[l] = []
 
-        vertexmap = {}
+        mesh_edges = []
         layer_connection_edges = []
         merged_vertices = []
         all_edges = []
 
-        for index, v in enumerate(bmesh.verts):
+        for index, v in enumerate(faces):
             # Get vertices by layers based on coordinates and normal
             
-            vertex = v.co + v.normal*self.offset
+            vertex = v["loc"] + v["orientation"]*self.offset
             #Append vertices to each of their respective layer
             for l in range(layers):
                 vertex_layers[l].append(vertex.copy())
-                vertex += v.normal * self.offset_radius
+                vertex += v["orientation"] * self.offset_radius
 
-            #Create vertex map index list to be used later
-            vertexmap[v.index] = index
+            #Remap face indices
+            v["index"] = index
 
-        total_vertex_num = len(vertexmap)
+        total_vertex_num = len(faces)
 
-        for e in bmesh.edges:
+        for f1 in faces:
+            no_of_edges = 0
+            for v1 in f1["edge_indices"]:
+                for f2 in faces:
+                    if f2["index"] == f1["index"]:
+                        continue
+                    no_of_edges += 1
+                    if any(v2 == v1 for v2 in f2["edge_indices"]):
+                        if not ([f2["index"], f1["index"]] in mesh_edges):
+                            mesh_edges.append([f1["index"], f2["index"]])
+            f1["edges"] = no_of_edges
+
+        for e in mesh_edges:
             #Get index of each edge's two connected vertices
-            index0 = e.verts[0].index
-            index1 = e.verts[1].index
+            index0 = e[0]
+            index1 = e[1]
             
             #Index is called upon via the created vertexmap as it contains
             #all the vertices, then append it to the edge layer to pathfind later
@@ -90,8 +102,8 @@ class Paths:
             # Add edges to their respective layers
             for l in range(layers):
                 edge_layers[l].append(
-                    [vertexmap[index0] + l * total_vertex_num, 
-                    vertexmap[index1] + l * total_vertex_num]
+                    [index0 + l * total_vertex_num, 
+                    index1 + l * total_vertex_num]
                     )
 
         #Merge all layers together
@@ -105,8 +117,6 @@ class Paths:
 
         all_edges += layer_connection_edges
 
-        #Close bmesh (Prevent further access)
-        bmesh.free()
         self.vertices = merged_vertices
         self.edges = all_edges
         return
@@ -122,7 +132,7 @@ class Paths:
             n = q_obj @ n
 
             # Edges here depends on loop_total (Number of loops in polygon) being equal to edges of polygon
-            faces.append({"loc": np.array(location), "orientation": n, "edges": p.loop_total})
+            faces.append({"loc": np.array(location), "orientation": n, "index": p.index, "edges": p.loop_total, "edge_indices": p.edge_keys})
         return faces
 
     def create_wires(self, start, end):
@@ -131,38 +141,28 @@ class Paths:
         '''
         #TODO Document this properly
 
-        start_loc, start_n, start_e_no = start["loc"], start["orientation"], start["edges"]
-        end_loc, end_n, end_e_no = end["loc"], end["orientation"], end["edges"]
-
-        inside_start = start_loc - start_n * self.offset
-        outside_start = start_loc + start_n * self.offset
-        outside_end = end_loc + end_n * self.offset
-        inside_end = end_loc - end_n * self.offset
-
-        outside_verts = (mu.Vector(outside_start), mu.Vector(outside_end))
+        start_loc, start_idx = start["loc"], start["index"]
+        end_loc, end_idx = end["loc"], end["index"]
 
         # Check for empty neighbour vertices
-        # Neighbour vertices are required as graph traversal relies on vertices and edges
-        # Face values only capture the center of each face
 
-        vert_idx, occupied = self.add_vert_edges(outside_verts, [start_e_no, end_e_no])
+        occupied_verts, occupied = self.check_neighbors(start_idx, end_idx)
         if occupied:
-            return vert_idx, True
+            return occupied_verts, True
         
         usable_verts, usable_edges, vert_mapping = self.get_usable_mesh()
-        assert self.vert_occupation[vert_idx[0]] == 0
-        assert self.vert_occupation[vert_idx[1]] == 0
-        # for v in outside_verts:
-        #     assert v in usable_verts
-        outside_start_idx, outside_end_idx = vert_mapping.index(vert_idx[0]), vert_mapping.index(vert_idx[1])
+        assert self.vert_occupation[start_idx] == 0
+        assert self.vert_occupation[end_idx] == 0
+
+        start_idx, end_idx = vert_mapping.index(start_idx), vert_mapping.index(end_idx)
 
         try:
-            path_vertices = self.find_path(usable_verts, usable_edges, outside_start_idx, outside_end_idx, vert_mapping)
+            path_vertices = self.find_path(usable_verts, usable_edges, start_idx, end_idx, vert_mapping)
         except nx.NetworkXNoPath as ex:
             printinfo("No path found between chosen vertices")
             raise ex
         
-        wire_verts = [inside_start, start_loc] + path_vertices + [end_loc, inside_end]
+        wire_verts = [start_loc] + path_vertices + [end_loc]
 
         return wire_verts, False
 
@@ -178,7 +178,8 @@ class Paths:
             if self.vert_occupation[idx] == 0:
                 usable_verts.append(v)
                 vert_mapping.append(idx)
-        print("vert_mapping    ",vert_mapping)
+        # print("vert_mapping    ",vert_mapping)
+
         for e in self.edges:
             if all(self.vert_occupation[v_idx] == 0 for v_idx in e):
                 usable_edges.extend([[vert_mapping.index(v_idx) for v_idx in e]])
@@ -192,7 +193,7 @@ class Paths:
         graph_edges = []
 
         for vi1, vi2 in usable_edges:
-            length = (usable_verts[vi1] - usable_verts[vi2]).length
+            length = mu.Vector(usable_verts[vi1] - usable_verts[vi2]).length
             graph_edges.append([vi1, vi2, {"weight": length}])
 
         graph = nx.Graph(graph_edges)
@@ -211,37 +212,35 @@ class Paths:
         for vi in path:
             self.vert_occupation[vert_mapping[vi]] += 1
 
-    def add_vert_edges(self, new_verts, neighbors):
+    def check_neighbors(self, start, end):
         '''
             Attempts to add vertices representing the face normal at layer 0 and corresponding edges
         '''
 
-        # Use KD-Tree to find nearest neighbouring vertices
-        no_of_verts = len(self.vertices)
-        kd_tree = mu.kdtree.KDTree(no_of_verts)
-        for idx, v in enumerate(self.vertices):
-            kd_tree.insert(v, idx)
-        kd_tree.balance()
-
         # Identify nearest neighbouring vertices
-        start_neighbors = kd_tree.find_n(new_verts[0], neighbors[0])
-        end_neighbors = kd_tree.find_n(new_verts[1], neighbors[1])
+        start_neighbors = []
+        end_neighbors = []
+
+        for e in self.edges:
+            if e[0] == start:
+                start_neighbors.append(e[1])
+            elif e[1] == start:
+                start_neighbors.append(e[0])
+            if e[0] == end:
+                end_neighbors.append(e[1])
+            elif e[1] == end:
+                end_neighbors.append(e[0])
 
         # If all neighbouring vertices are occupied, the face cannot be used
-        start_occ_list = [self.vert_occupation[p[1]] for p in start_neighbors]
-        start_occupied = not(0 in start_occ_list)
-        end_occ_list = [self.vert_occupation[p[1]] for p in end_neighbors]
-        end_occupied = not(0 in end_occ_list)
+        start_occ_list = [self.vert_occupation[p] for p in start_neighbors]
+        start_occupied = not(0 in start_occ_list) or self.vert_occupation[start]
+        end_occ_list = [self.vert_occupation[p] for p in end_neighbors]
+        end_occupied = not(0 in end_occ_list) or self.vert_occupation[end]
 
         if start_occupied or end_occupied:
             return (start_occupied, end_occupied), True
         
-        new_idx = (no_of_verts, no_of_verts+1)
-
-        self.vertices.extend(new_verts)
-        self.edges.extend([[new_idx[0], p[1]] for p in start_neighbors])
-        self.edges.extend([[new_idx[1], p[1]]for p in end_neighbors])
-        return new_idx, False
+        return (), False
 
     def render_curve(self, vert_chain, radius, res):
         '''
@@ -570,10 +569,9 @@ class AddPipe(bpy.types.Operator):
             printinfo("Wrong object type!")
             return {'CANCELLED'}
 
-        bm = instPaths.generate_bmesh(instPaths.sel_object)
-        instPaths.create_mesh_to_pathfind(bm, layers=self.layers)
-        # print(instPaths.vertices)
         faces = instPaths.get_faces_from_obj_polygons(instPaths.sel_object)
+        instPaths.create_mesh_to_pathfind(faces, layers=self.layers)
+        # print(instPaths.vertices)
 
 
 
