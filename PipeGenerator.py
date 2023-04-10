@@ -311,6 +311,7 @@ class Paths:
         obj = bpy.data.objects.new('pipe', crv)
 
         obj.location = origin
+
         return obj
 
     def create_pipes(self, faces, max_paths, radius, resolution, seed = 1, mat_idx = 0):
@@ -372,7 +373,7 @@ class Paths:
                 newobj["pipe_id"] = curr_paths
                 newobj.parent = self.sel_object
                 newcol.objects.link(newobj)
-                
+
                 curr_paths += 1
                 free_faces = free_faces[2::]
                 curr_try = 0
@@ -387,6 +388,31 @@ class Paths:
             # Creates as many paths as faces allow
             printinfo(f"No more free faces: {curr_paths}/{max_paths} paths")
 
+
+        # subdivide and smooth generated pipe
+        for object in bpy.data.objects:
+            object.select_set(False)
+        self.sel_object.select_set(False)
+        
+        for obj in newcol.objects:
+            if ('pipe' in obj.name) and (obj.type == 'CURVE'):
+                bpy.context.view_layer.objects.active = obj
+                obj.select_set(True)
+                # print("pipe added")
+            else:
+                obj.select_set(False)
+        print(bpy.context.selected_objects)
+        bpy.ops.object.mode_set(mode='EDIT', toggle=False)
+
+        bpy.ops.curve.select_all(action='SELECT')
+        bpy.ops.curve.subdivide(number_cuts=3)
+        bpy.ops.curve.smooth()
+        bpy.ops.curve.smooth()
+        bpy.ops.curve.smooth()
+        bpy.ops.curve.smooth()
+        bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
+
+        #reset parent object back to selected state
         for object in bpy.data.objects:
             object.select_set(False)
         self.sel_object.select_set(True)
@@ -570,7 +596,7 @@ class AddPipe(bpy.types.Operator):
     number: IntProperty(name="number of pipes",
         description="number of pipes",
         min = 0,
-        default = 1,
+        default = 2,
     )
     layers: IntProperty(name="number of layers",
         description="number of layers of pipes",
