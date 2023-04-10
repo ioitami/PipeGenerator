@@ -42,12 +42,6 @@ class Paths:
     if sel_object_num != 1:
         print("You can only select 1 Mesh!")
 
-    # def generate_bmesh(self, selected_obj):
-    #     '''Create Bmesh from selected Mesh'''
-    #     bm = bmesh.new()
-    #     bm.from_mesh(selected_obj.data)
-    #     return bm
-
     def create_mesh_to_pathfind(self, faces, layers=2):
         '''
             Takes in faces, returns specified layers of vertices 
@@ -116,6 +110,45 @@ class Paths:
             layer_connection_edges += [[v + l * total_vertex_num, v + (l+1) * total_vertex_num] for v in range(total_vertex_num)]
 
         all_edges += layer_connection_edges
+
+        replaced_edges = []
+        replacing_edges = []
+        extension_verts = []
+        new_vert_idx = len(merged_vertices)
+
+        for e in all_edges:
+            vi1 = e[0]
+            vi2 = e[1]
+            vn1 = faces[vi1%total_vertex_num]["orientation"]
+            vn2 = faces[vi2%total_vertex_num]["orientation"]
+            if vn1 == vn2:
+                continue
+            v1 = merged_vertices[vi1]
+            v2 = merged_vertices[vi2]
+            magic_matrix = np.array([[2, 0, 0, vn1[0], vn2[0]],
+                               [0, 2, 0, vn1[1], vn2[1]],
+                               [0, 0, 2, vn1[2], vn2[2]],
+                               [vn1[0], vn1[1], vn1[2], 0, 0],
+                               [vn2[0], vn2[1], vn2[2], 0, 0]])
+            magic_vec = np.array([[2*v1[0]], 
+                               [2*v1[1]], 
+                               [2*v1[2]], 
+                               [np.dot(v1, vn1)],
+                               [np.dot(v2, vn2)]])
+            magic_solution = np.dot(np.linalg.inv(magic_matrix), magic_vec)
+            new_vert = magic_solution[0:3].flatten().tolist()
+            
+            extension_verts.append(new_vert)
+            replaced_edges.append(e)
+            replacing_edges.append([vi1, new_vert_idx])
+            replacing_edges.append([new_vert_idx, vi2])
+            new_vert_idx += 1
+
+        for r in replaced_edges:
+            all_edges.remove(r)
+        
+        merged_vertices += extension_verts
+        all_edges += replacing_edges
 
         self.vertices = merged_vertices
         self.edges = all_edges
