@@ -410,6 +410,10 @@ class Paths:
         bpy.ops.curve.smooth()
         bpy.ops.curve.smooth()
         bpy.ops.curve.smooth()
+        
+        bpy.ops.curve.spline_type_set(type='BEZIER')
+        bpy.ops.curve.decimate(ratio=0.4)
+        
         bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
 
         #reset parent object back to selected state
