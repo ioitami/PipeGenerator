@@ -314,7 +314,7 @@ class Paths:
 
         return obj
 
-    def create_pipes(self, faces, max_paths, radius, resolution, seed = 1, mat_idx = 0):
+    def create_pipes(self, faces, max_paths, radius, resolution, material, seed = 1, mat_idx = 0):
         '''
             Tries to create up to {max_paths} pipes based on faces and pathfinding area.\n
             Radius refers to pipe radius, may need to be restricted...
@@ -418,8 +418,12 @@ class Paths:
 
         #reset parent object back to selected state
         for object in bpy.data.objects:
-            object.select_set(False)
-        self.sel_object.select_set(True)
+            if (object!=self.sel_object):
+                object.select_set(False)
+                object.active_material = bpy.data.materials[material]
+                print("Material set as Metal")
+            else:
+                self.sel_object.select_set(True)
         return "success"
 
 # TODO Prepare to make this a plugin
@@ -449,7 +453,8 @@ from bpy.props import (
     BoolProperty,
     IntProperty,
     FloatProperty,
-    PointerProperty
+    PointerProperty,
+    EnumProperty
 )
 # class PropertyGroup(bpy.types.PropertyGroup):
 #     radius: FloatProperty(name="radius",
@@ -576,6 +581,16 @@ class AddPipe(bpy.types.Operator):
     # def invoke(self, context, event):
     #     self.execute(context)
     #     return {'FINISHED'}
+    
+    material: EnumProperty(name="type of material",
+        description="type of material",
+        items={("Metal", "Stained Brown", ""),
+               ("metal_02", "Stained Black", ""), 
+               ("PipeBaseMetal2","Stained Bronze", ""),
+               ("Red", "Red", "")},
+        default="Metal"
+    )
+    
     radius: FloatProperty(name="radius",
         description="radius of pipes",
         min=0.001, max=1000.0,
@@ -607,10 +622,12 @@ class AddPipe(bpy.types.Operator):
         min = 0,
         default = 2
     )
+        
     reset: BoolProperty(name="reset",
         description="delete previously created pipes",
         default=True
     )
+
     
     def execute(self, context):
         if self.reset:
@@ -642,7 +659,8 @@ class AddPipe(bpy.types.Operator):
                     max_paths = self.number,
                     radius = self.radius,
                     resolution = self.res_v,
-                    seed = self.seed,)        
+                    seed = self.seed,
+                    material = self.material)        
 
         if state != "success":
             #self.report({'INFO'}, state)
