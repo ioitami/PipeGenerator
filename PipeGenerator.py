@@ -399,6 +399,7 @@ class Paths:
             if ('pipe' in obj.name) and (obj.type == 'CURVE'):
                 bpy.context.view_layer.objects.active = obj
                 obj.select_set(True)
+                obj.active_material = bpy.data.materials[material]
                 # print("pipe added")
             else:
                 obj.select_set(False)
@@ -419,12 +420,8 @@ class Paths:
 
         #reset parent object back to selected state
         for object in bpy.data.objects:
-            if (object!=self.sel_object):
-                object.select_set(False)
-                object.active_material = bpy.data.materials[material]
-                print("Material set as Metal")
-            else:
-                self.sel_object.select_set(True)
+            object.select_set(False)
+        self.sel_object.select_set(True)
         return "success"
 
 # TODO Prepare to make this a plugin
