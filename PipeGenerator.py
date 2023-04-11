@@ -343,7 +343,8 @@ class Paths:
             if self.sel_object['pipe_collection'] in bpy.data.collections.keys():
                 newcol = bpy.data.collections[self.sel_object['pipe_collection']]
             else:
-                newcol = bpy.data.collections.new('pipes')
+                newname = self.sel_object.name + " - Pipes"
+                newcol = bpy.data.collections.new(newname)
                 bpy.context.scene.collection.children.link(newcol)
                 self.sel_object['pipe_collection'] = newcol.name
         else:
@@ -503,9 +504,16 @@ class delete_children(bpy.types.Operator):
 
     def execute(self, context):
         for p_ob in context.selected_objects:
+            name = p_ob.name
+            
             for c_ob in p_ob.children:
                 if 'pipe_id' in c_ob.keys():
                     bpy.data.objects.remove(c_ob, do_unlink=True)
+                    
+        collection_name = name + " - Pipes"
+        collection = bpy.data.collections.get(collection_name)
+        bpy.data.collections.remove(collection)
+        
         return {'FINISHED'}
 
 
