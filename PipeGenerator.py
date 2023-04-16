@@ -21,6 +21,39 @@ def printinfo(msg):
     print(msg)
     return msg
 
+
+class GeoNode_algo:
+    # Geo Node algorithm
+
+    def add_geo_nodes(node):
+        if node=="GridPipe":
+            GeometryNodeName = "PipeGenerator-GridFlat"
+        elif node=="GridFaces":
+            GeometryNodeName = "PipeGenerator-GridFaces"
+        elif node == "GridWall":
+            GeometryNodeName= "PipeGenerator-Wall"
+        
+        sel = bpy.context.active_object
+
+        if sel is not None:
+            # Duplicate Obj and rename it
+            bpy.ops.object.duplicate(linked=False)
+            
+            new_sel = bpy.context.active_object
+
+            new_sel.name = sel.name + " - Pipes"
+            
+            # 2) Add the GeometryNodes Modifier
+            geo_modifier = new_sel.modifiers.new("GN", "NODES")
+
+            # Locate the node tree you want to add to the modifier
+            # Replace this with code to find the node tree you want to use
+            Node_name = bpy.data.node_groups[GeometryNodeName]
+
+            # 3) Replace the modifier's node group with the replacement
+            geo_modifier.node_group = Node_name
+
+
 class Paths:
     # TODO We'll want to able to change offset based on input
 
@@ -314,7 +347,7 @@ class Paths:
 
         return obj
 
-    def create_pipes(self, faces, max_paths, radius, resolution, seed = 1, mat_idx = 0):
+    def create_pipes(self, faces, max_paths, radius, resolution, material, seed = 1, mat_idx = 0):
         '''
             Tries to create up to {max_paths} pipes based on faces and pathfinding area.\n
             Radius refers to pipe radius, may need to be restricted...
@@ -343,7 +376,8 @@ class Paths:
             if self.sel_object['pipe_collection'] in bpy.data.collections.keys():
                 newcol = bpy.data.collections[self.sel_object['pipe_collection']]
             else:
-                newcol = bpy.data.collections.new('pipes')
+                newname = self.sel_object.name + " - Pipes"
+                newcol = bpy.data.collections.new(newname)
                 bpy.context.scene.collection.children.link(newcol)
                 self.sel_object['pipe_collection'] = newcol.name
         else:
@@ -398,6 +432,7 @@ class Paths:
             if ('pipe' in obj.name) and (obj.type == 'CURVE'):
                 bpy.context.view_layer.objects.active = obj
                 obj.select_set(True)
+                obj.active_material = bpy.data.materials[material]
                 # print("pipe added")
             else:
                 obj.select_set(False)
@@ -438,10 +473,6 @@ class Paths:
 
 
 
-
-
-
-
 # create plugin here
 
     
@@ -452,44 +483,6 @@ from bpy.props import (
     PointerProperty,
     EnumProperty
 )
-# class PropertyGroup(bpy.types.PropertyGroup):
-#     radius: FloatProperty(name="radius",
-#         description="radius of pipes",
-#         min=0.001, max=1000.0,
-#         step = 1.0,
-#         default=.05
-#     )
-#     res_v: IntProperty(name="resolution v",
-#         description="resolution of pipe circumference",
-#         default=10,
-#         min = 4
-#     )
-#     offset: FloatProperty(name="offset",
-#         description="offset from mesh",
-#         min=-10, max=10.0,
-#         step = 1.0,
-#         default=.11
-#     )
-#     seed: IntProperty(name="random seed",
-#         description="seed value for randomness",
-#         default=10
-#     )
-#     number: IntProperty(name="number of pipes",
-#         description="number of pipes",
-#         min = 0,
-#         default = 2,
-#         update=instantiate
-#     )
-#     layers: IntProperty(name="number of layers",
-#         description="number of layers of pipes",
-#         min = 0,
-#         default = 2
-#     )
-#     reset: BoolProperty(name="reset",
-#         description="delete previously created pipes",
-#         default=True
-#     )
-
 
 #button to delete all pipes on sel_object, can be accessed in PipeGenerator panel
 class delete_children(bpy.types.Operator):
@@ -499,9 +492,16 @@ class delete_children(bpy.types.Operator):
 
     def execute(self, context):
         for p_ob in context.selected_objects:
+            name = p_ob.name
+            
             for c_ob in p_ob.children:
                 if 'pipe_id' in c_ob.keys():
                     bpy.data.objects.remove(c_ob, do_unlink=True)
+                    
+        collection_name = name + " - Pipes"
+        collection = bpy.data.collections.get(collection_name)
+        bpy.data.collections.remove(collection)
+        
         return {'FINISHED'}
 
 
@@ -514,44 +514,6 @@ class PipePanel(bpy.types.Panel):
     bl_region_type = 'UI'
     bl_category = 'PipeGenerator'
     #bl_context = "tool"
-
-    # radius: FloatProperty(
-    #     name="radius",
-    #     description="radius of pipes",
-    #     min=0.001, max=1000.0,
-    #     step = 1.0,
-    #     default=.05
-    # )
-    # res_v: IntProperty(name="resolution v",
-    #     description="resolution of pipe circumference",
-    #     default=10,
-    #     min = 4
-    # )
-    # offset: FloatProperty(name="offset",
-    #     description="offset from mesh",
-    #     min=-1000, max=1000.0,
-    #     step = 1.0,
-    #     default=.11
-    # )
-    # seed: IntProperty(name="random seed",
-    #     description="seed value for randomness",
-    #     default=10
-    # )
-    # number: IntProperty(name="number of pipes",
-    #     description="number of pipes",
-    #     min = 0,
-    #     default = 2,
-    #     update=execute
-    # )
-    # layers: IntProperty(name="number of layers",
-    #     description="number of layers of pipes",
-    #     min = 0,
-    #     default = 2
-    # )
-    # reset: BoolProperty(name="reset",
-    #     description="delete previously created pipes",
-    #     default=True
-    # )
 
     def draw(self, context):
         layout = self.layout
@@ -577,6 +539,25 @@ class AddPipe(bpy.types.Operator):
     # def invoke(self, context, event):
     #     self.execute(context)
     #     return {'FINISHED'}
+    
+    algo: EnumProperty(name="algorithm used",
+        description="algorithm used to generate pipes",
+        items={("py_script", "Default python script", ""),
+               ("GridPipe", "GeoNode - GridFlat", ""),
+               ("GridFaces", "GeoNode - GridFaces", ""),
+               ("GridWall", "GeoNode - GridWall", "")},
+        default="py_script"
+    )
+    
+    material: EnumProperty(name="type of material",
+        description="type of material",
+        items={("Metal", "Stained Brown", ""),
+               ("metal_02", "Stained Black", ""), 
+               ("PipeBaseMetal2","Stained Bronze", ""),
+               ("Red", "Red", "")},
+        default="Metal"
+    )
+    
     radius: FloatProperty(name="radius",
         description="radius of pipes",
         min=0.001, max=1000.0,
@@ -613,11 +594,7 @@ class AddPipe(bpy.types.Operator):
         description="delete previously created pipes",
         default=True
     )
-    
-    material: EnumProperty(name="type of material",
-        description="type of material",
-        default="Metal"
-    )
+
     
     def execute(self, context):
         if self.reset:
@@ -626,79 +603,67 @@ class AddPipe(bpy.types.Operator):
                     if 'pipe_id' in c_ob.keys():
                         bpy.data.objects.remove(c_ob, do_unlink=True)            
         
-        #TODO: enable "poll" method for better object checking
-        instPaths = Paths(self.offset)
-        # instPaths.offset = self.offset
-        instPaths.sel_object = bpy.context.selected_objects[0]
-        
-        if len(bpy.context.selected_objects) == 0:
-            printinfo('No objects selected!')
-            return {'CANCELLED'}
-        
-        if instPaths.sel_object.type != 'MESH':
-            printinfo("Wrong object type!")
-            return {'CANCELLED'}
-
-        faces = instPaths.get_faces_from_obj_polygons(instPaths.sel_object)
-        instPaths.create_mesh_to_pathfind(faces, layers=self.layers)
-        # print(instPaths.vertices)
-
-
-
-        state = instPaths.create_pipes(faces,
-                    max_paths = self.number,
-                    radius = self.radius,
-                    resolution = self.res_v,
-                    seed = self.seed,)        
-
-        if state != "success":
-            #self.report({'INFO'}, state)
-            # Paths.render_components.catalog = object_catalog()
-            # self.report({'ERROR'}, state)
-            return {'CANCELLED'}
+        # add option to choose algorithm
+        if self.algo=="py_script":
+            #TODO: enable "poll" method for better object checking
+            instPaths = Paths(self.offset)
+            # instPaths.offset = self.offset
+            instPaths.sel_object = bpy.context.selected_objects[0]
             
-        return {'FINISHED'}
+            if len(bpy.context.selected_objects) == 0:
+                printinfo('No objects selected!')
+                return {'CANCELLED'}
+            
+            if instPaths.sel_object.type != 'MESH':
+                printinfo("Wrong object type!")
+                return {'CANCELLED'}
 
+            faces = instPaths.get_faces_from_obj_polygons(instPaths.sel_object)
+            instPaths.create_mesh_to_pathfind(faces, layers=self.layers)
+            # print(instPaths.vertices)
 
+            state = instPaths.create_pipes(faces,
+                        max_paths = self.number,
+                        radius = self.radius,
+                        resolution = self.res_v,
+                        seed = self.seed,
+                        material = self.material)        
+
+            if state != "success":
+                #self.report({'INFO'}, state)
+                # Paths.render_components.catalog = object_catalog()
+                # self.report({'ERROR'}, state)
+                return {'CANCELLED'}
+                
+            return {'FINISHED'}
+        
+        else: 
+            GeoNode_algo.add_geo_nodes(self.algo)
+
+        
+        
 
 classes = (AddPipe, delete_children, PipePanel)
-
-
 
 def menu_func(self, context):
     self.layout.operator(AddPipe.bl_idname, icon='META_CAPSULE')
 
 def register():
-    # bpy.utils.register_class(AddPipe)
-    
-    
-    # bpy.utils.register_class(delete_children)
     for i in classes:
         bpy.utils.register_class(i)
     bpy.types.VIEW3D_MT_mesh_add.append(menu_func)
-    # bpy.utils.register_class(IntProperty)
-    # bpy.utils.register_class(PipePanel)
-    # bpy.types.Scene.myProperties = PointerProperty(type=PropertyGroup)
 
 def unregister():
-    # bpy.utils.unregister_class(AddPipe)
-    
-    
-    # bpy.utils.unregister_class(delete_children)
-
     for i in classes:
         bpy.utils.unregister_class(i)
     bpy.types.VIEW3D_MT_mesh_add.remove(menu_func)
-    # bpy.utils.unregister_class(PropertyGroup)
-    # bpy.utils.unregister_class(PipePanel)
     
 
 if __name__ == "__main__":
     #logging.basicConfig(level=logging.INFO)     #already set in blender this way
-    register()
-#    unregister()
-    import pdb, traceback, sys
+    import traceback, sys
     try:
+        register()
         #get selected object
 #        """ bm = generate_bmesh(sel_object)
 #        vertices, edges = create_mesh_to_pathfind(bm, layers=layers)
@@ -713,7 +678,6 @@ if __name__ == "__main__":
 #                                 edges = es)"""
         # test call
         # bpy.ops.mesh.add_pipes()
-
         pass
     except:
         extype, value, tb = sys.exc_info()
