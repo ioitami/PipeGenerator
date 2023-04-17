@@ -154,7 +154,7 @@ class Paths:
             vi2 = e[1]
             vn1 = faces[vi1%total_vertex_num]["orientation"]
             vn2 = faces[vi2%total_vertex_num]["orientation"]
-            if np.dot(np.cross(vn1, vn2), np.cross(vn1, vn2)) == 0:
+            if math.isclose(np.dot(np.cross(vn1, vn2), np.cross(vn1, vn2)) , 0, abs_tol=1e-9):
                 continue
             v1 = merged_vertices[vi1]
             v2 = merged_vertices[vi2]
