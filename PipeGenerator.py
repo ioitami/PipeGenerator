@@ -106,16 +106,13 @@ class Paths:
         total_vertex_num = len(faces)
 
         for f1 in faces:
-            no_of_edges = 0
             for v1 in f1["edge_indices"]:
                 for f2 in faces:
                     if f2["index"] == f1["index"]:
                         continue
-                    no_of_edges += 1
                     if any(v2 == v1 for v2 in f2["edge_indices"]):
                         if not ([f2["index"], f1["index"]] in mesh_edges):
                             mesh_edges.append([f1["index"], f2["index"]])
-            f1["edges"] = no_of_edges
 
         for e in mesh_edges:
             #Get index of each edge's two connected vertices
@@ -196,8 +193,8 @@ class Paths:
             n = p.normal
             n = q_obj @ n
 
-            # Edges here depends on loop_total (Number of loops in polygon) being equal to edges of polygon
-            faces.append({"loc": np.array(location), "orientation": n, "index": p.index, "edges": p.loop_total, "edge_indices": p.edge_keys})
+            # Edge_indices here are used to identify the face's edges
+            faces.append({"loc": np.array(location), "orientation": n, "index": p.index, "edge_indices": p.edge_keys})
         return faces
 
     def create_wires(self, start, end):
