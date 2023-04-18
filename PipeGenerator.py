@@ -55,7 +55,6 @@ class GeoNode_algo:
 
 
 class Paths:
-    # TODO We'll want to able to change offset based on input
 
     def __init__(self, offset):
         self.offset = offset
@@ -205,13 +204,12 @@ class Paths:
         '''
             Wires refer to skeletons of pipes
         '''
-        #TODO Document this properly
-
+        
+        # Get the locations and indices of start and end vertices
         start_loc, start_idx = start["loc"], start["index"]
         end_loc, end_idx = end["loc"], end["index"]
 
         # Check for empty neighbour vertices
-
         occupied_verts, occupied = self.check_neighbors(start_idx, end_idx)
         if occupied:
             return occupied_verts, True
@@ -280,7 +278,8 @@ class Paths:
 
     def check_neighbors(self, start, end):
         '''
-            Attempts to add vertices representing the face normal at layer 0 and corresponding edges
+            Checks that the neighbours of the start and end points are valid. \n
+            If not, the points themselves cannot be used as pipe endpoints.
         '''
 
         # Identify nearest neighbouring vertices
@@ -298,6 +297,7 @@ class Paths:
                 end_neighbors.append(e[0])
 
         # If all neighbouring vertices are occupied, the face cannot be used
+        # If the face vertex itself is occupied as well
         start_occ_list = [self.vert_occupation[p] for p in start_neighbors]
         start_occupied = not(0 in start_occ_list) or self.vert_occupation[start]
         end_occ_list = [self.vert_occupation[p] for p in end_neighbors]
@@ -313,9 +313,6 @@ class Paths:
             Renders a curve based on a found path and other parameters
         '''
         
-        # TODO Redo comments for this function (currently source's comments)
-
-
         origin = np.array((0,0,0))
         
         crv = bpy.data.curves.new('pipe', type='CURVE')
@@ -326,13 +323,13 @@ class Paths:
         crv.bevel_resolution = (res - 4) // 2
         crv.extrude = 0.0 
 
-        # make a new spline in that curve
+        # Make a new spline in that curve
         spline = crv.splines.new(type='POLY')
 
-        # a spline point for each point, one point exists when initialised
+        # Add a spline point for each point, one point exists when initialised
         spline.points.add(len(vert_chain)-1) 
         
-        # assign the point coordinates to the spline points
+        # Assign the point coordinates to the spline points
         node_weight = 1.0
         for p, new_co in zip(spline.points, vert_chain):
             coords = (new_co.tolist() + [node_weight])
@@ -340,7 +337,7 @@ class Paths:
 
             p.radius = 1.0 
             
-        # make a new object with the curve
+        # Make a new object with the curve
         obj = bpy.data.objects.new('pipe', crv)
 
         obj.location = origin
@@ -352,8 +349,6 @@ class Paths:
             Tries to create up to {max_paths} pipes based on faces and pathfinding area.\n
             Radius refers to pipe radius, may need to be restricted...
         '''
-        #TODO Figure out resolution and mat_idx
-
         random.seed(seed)
         no_of_faces = len(faces)
         if no_of_faces < 2:
@@ -361,17 +356,9 @@ class Paths:
             printinfo(msg)
             return msg
 
-        # Combination version should have an extruded version of the plane to use for pathfinding
-        # Currently, the called functions use vertices, edges obtained from create_mesh_to_pathfind
-        # Which are global variables
-        ###PLACEHOLDER###
-
-        ###PLACEHOLDER###
-
         free_faces = faces.copy()
         random.shuffle(free_faces)
 
-        #TODO Evaluate the need for this portion
         if "pipe_collection" in self.sel_object.keys():
             if self.sel_object['pipe_collection'] in bpy.data.collections.keys():
                 newcol = bpy.data.collections[self.sel_object['pipe_collection']]
@@ -457,25 +444,10 @@ class Paths:
         self.sel_object.select_set(True)
         return "success"
 
-# TODO Prepare to make this a plugin
-# Currently the code is just run directly with the values controlled here
-
-#bm = generate_bmesh(sel_object)
-#vertices, edges = create_mesh_to_pathfind(bm, layers=2)
-#faces = get_faces_from_obj_polygons(sel_object)
-#msg = create_pipes(faces, max_paths = 2, radius = 0.05, resolution = 10, seed=4)
 
 
 
 
-
-
-
-
-
-# create plugin here
-
-    
 from bpy.props import (
     BoolProperty,
     IntProperty,
