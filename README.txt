@@ -40,7 +40,6 @@ Note: the script will give an error if you try to run it without selecting an ob
 3. To change the algorithm used, click the first dropdown button and select accordingly.
     - Please note that for Geometry Node (GeoNode) algorithms, the UI to control the variables is in the 'Properties' window on the right
     - In the 'Properties' window, click 'Modifier Properties' (wrench icon) to view the UI.
-Note: the script will give an error when switching algorithms. (work in progress)
 
 Currently, "Delete Object Pipes" only works for the Python script.
 
