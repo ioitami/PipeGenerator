@@ -611,6 +611,7 @@ class AddPipe(bpy.types.Operator):
         
         else: 
             GeoNode_algo.add_geo_nodes(self.algo)
+            return {'FINISHED'}
 
         
         
