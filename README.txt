@@ -9,10 +9,13 @@ Team 1:
 | Sharryl Seto (1005523)
 
 ## Folder contents
+|- Blender 3.4
+    	|- blender (application)
+	|- ...
 |- src
-    |- PipeGenerator.py
-    |- PipeGeneration.blend
-    |- lib 
+	|- PipeGenerator.py
+	|- PipeGeneration.blend
+	|- lib 
 |- screenshots
 |- README.txt
 |- 50.017_team1_slides.pdf
