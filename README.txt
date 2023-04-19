@@ -8,19 +8,23 @@ Team 1:
 | Jowie Ng (1005494) 
 | Sharryl Seto (1005523)
 
-## Folder contents
-|- Blender 3.4
-    	|- blender (application)
-	|- blender-launcher
-|- src
-	|- PipeGenerator.py
-	|- PipeGeneration.blend
-	|- lib 
-|- screenshots
-|- README.txt
-|- 50.017_team1_slides.pdf
-|- 50.017_team1_report.pdf
-|- 50.017_team1_video.mp4
+## Submission Folder contents
+|- Team_1_demo_video.mp4
+|- Team_1_report.pdf
+|- Team_1_presentation_slides.pdf
+|- Team_1_source_code.zip
+	|- Blender 3.4
+    		|- blender (application)
+		|- blender-launcher
+		|- ...
+	|- README.txt
+	|- src
+		|- PipeGenerator.py
+		|- PipeGeneration.blend
+		|- lib 
+	|- screenshots
+
+
 
 Watch our demo video here: https://youtu.be/x9o-llCBsCc
 
